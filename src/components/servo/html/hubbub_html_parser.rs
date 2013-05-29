@@ -40,7 +40,7 @@ type JSResult = ~[~[u8]];
 
 enum CSSMessage {
     CSSTaskNewFile(StylesheetProvenance),
-    CSSTaskExit   
+    CSSTaskExit
 }
 
 enum JSMessage {
@@ -225,13 +225,13 @@ pub fn parse_html(url: Url,
 
     let url2 = url.clone(), url3 = url.clone();
 
-    // Build the root node.
-    let root = ~HTMLHtmlElement { parent: Element::new(HTMLHtmlElementTypeId, ~"html") };
-    let root = unsafe { Node::as_abstract_node(root) };
-    debug!("created new node");
+    // Build the document node. This is a formality/hack. We are going to treat the html node as root.
+    let dom = ~UnknownElement { parent: Element::new(UnknownElementTypeId, ~"DOM") };
+    let dom = unsafe { Node::as_abstract_node(dom) };
+    debug!("created new fake document node");
     let mut parser = hubbub::Parser("UTF-8", false);
-    debug!("created parser");
-    parser.set_document_node(root.to_hubbub_node());
+    debug!("created new hubbub parser");
+    parser.set_document_node(dom.to_hubbub_node());
     parser.enable_scripting(true);
 
     // Performs various actions necessary after appending has taken place. Currently, this
@@ -420,6 +420,11 @@ pub fn parse_html(url: Url,
         }
     }
 
+    let maybe_root = Some(dom.first_child());
+    let root = match maybe_root {
+        Some(node) => node.unwrap(),
+        None => fail!(~"HTML document has no root HTML node!")
+    };
     css_chan.send(CSSTaskExit);
     js_chan.send(JSTaskExit);
 
