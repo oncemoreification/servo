@@ -86,6 +86,7 @@ pub struct Node<View> {
 }
 
 /// The different types of nodes.
+// TODO(jj): point to spec.
 #[deriving(Eq)]
 pub enum NodeTypeId {
     ElementNodeTypeId(ElementTypeId),
@@ -98,6 +99,20 @@ pub enum NodeTypeId {
 //
 // Basic node types
 //
+
+/// The document node, the root node of the document.
+pub struct DocumentNode  {
+    parent: Node<ScriptView>
+}
+
+impl DocumentNode {
+    /// Creates a new document node.
+    pub fn new() -> DocumentNode {
+        DocumentNode {
+            parent: Node::new(DocumentNodeTypeId)
+        }
+    }
+}
 
 /// The `DOCTYPE` tag.
 pub struct Doctype<View> {
@@ -446,8 +461,8 @@ impl VoidPtrLike for AbstractNode<LayoutView> {
 
 pub fn define_bindings(compartment: @mut Compartment) {
     bindings::window::init(compartment);
-    bindings::document::init(compartment);
     bindings::node::init(compartment);
+    bindings::document::init(compartment);
     bindings::element::init(compartment);
     bindings::text::init(compartment);
     bindings::utils::initialize_global(compartment.global_obj.ptr);

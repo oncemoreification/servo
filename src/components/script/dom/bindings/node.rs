@@ -4,6 +4,7 @@
 
 use dom::bindings::element;
 use dom::bindings::text;
+use dom::bindings::document;
 use dom::bindings::utils;
 use dom::bindings::utils::{CacheableWrapper, WrapperCache, DerivedWrapper};
 use dom::node::{AbstractNode, Node, ElementNodeTypeId, TextNodeTypeId, CommentNodeTypeId};
@@ -62,12 +63,9 @@ pub fn create(cx: *JSContext, node: &mut AbstractNode<ScriptView>) -> jsobj {
     match node.type_id() {
         ElementNodeTypeId(_) => element::create(cx, node),
         TextNodeTypeId |
-        CommentNodeTypeId |
-        DoctypeNodeTypeId => text::create(cx, node),
-        // FIXME(jj): This is gross.
-        // I think we want to somehow create the document along with the document node.
-        // i.e. they should be the same thing.
-        DocumentNodeTypeId => element::create(cx, node),
+        DoctypeNodeTypeId |
+        CommentNodeTypeId => text::create(cx, node),
+        DocumentNodeTypeId => document::create_document_node(cx, node)
      }
 }
 
@@ -121,6 +119,8 @@ extern fn getNextSibling(cx: *JSContext, _argc: c_uint, vp: *mut JSVal) -> JSBoo
 }
 
 impl Node<ScriptView> {
+    /// The integer representing a node as specified in the DOM standard:
+    /// http://dom.spec.whatwg.org/#node
     fn getNodeType(&self) -> i32 {
         match self.type_id {
             ElementNodeTypeId(_) => 1,

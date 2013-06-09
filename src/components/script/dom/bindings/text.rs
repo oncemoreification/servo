@@ -40,7 +40,7 @@ extern fn finalize_doctype(_fop: *JSFreeOp, obj: *JSObject) {
 
 pub fn init(compartment: @mut Compartment) {
     let _ = utils::define_empty_prototype(~"CharacterData", Some(~"Node"), compartment);
-    
+
     let _ = utils::define_empty_prototype(~"TextPrototype",
                                           Some(~"CharacterData"),
                                           compartment);
@@ -61,7 +61,7 @@ pub fn init(compartment: @mut Compartment) {
                                                        finalize_doctype,
                                                        element::trace));
 
-    
+
 }
 
 pub fn create(cx: *JSContext, node: &mut AbstractNode<ScriptView>) -> jsobj {

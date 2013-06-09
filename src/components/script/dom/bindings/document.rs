@@ -3,13 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use dom::bindings::utils::{DOMString, rust_box, squirrel_away, str};
-use dom::bindings::utils::{WrapperCache, DerivedWrapper};
+use dom::bindings::utils::{WrapperCache, DerivedWrapper, DOM_OBJECT_SLOT};
 use dom::bindings::utils::{jsval_to_str, WrapNewBindingObject, CacheableWrapper};
 use dom::bindings::utils;
 use dom::document::Document;
 use dom::htmlcollection::HTMLCollection;
-use dom::node::{AbstractNode, ScriptView, ElementNodeTypeId};
+use dom::node::{AbstractNode, ScriptView, ElementNodeTypeId, DocumentNode};
 use dom::element::{HTMLHtmlElementTypeId};
+use dom::bindings::element;
+use dom::bindings::node;
 use js::glue::bindgen::*;
 use js::glue::{PROPERTY_STUB, STRICT_PROPERTY_STUB};
 use js::jsapi::bindgen::{JS_DefineProperties};
@@ -95,8 +97,18 @@ extern fn finalize(_fop: *JSFreeOp, obj: *JSObject) {
     }
 }
 
+extern fn finalize_document_node(_fop: *JSFreeOp, obj: *JSObject) {
+    debug!("document node finalize: %?!", obj as uint);
+    unsafe {
+        let node: AbstractNode<ScriptView> = node::unwrap(obj);
+        let _elem: ~DocumentNode = cast::transmute(node.raw_object());
+    }
+}
+
 pub fn init(compartment: @mut Compartment) {
+    // FIXME: abstract this interfacing boilerplate
     let obj = utils::define_empty_prototype(~"Document", None, compartment);
+    let _ = utils::define_empty_prototype(~"DocumentNodePrototype", Some(~"Node"), compartment);
 
     let attrs = @~[
         JSPropertySpec {
@@ -133,8 +145,12 @@ pub fn init(compartment: @mut Compartment) {
     compartment.register_class(utils::instance_jsclass(~"DocumentInstance",
                                                        finalize,
                                                        ptr::null()));
+    compartment.register_class(utils::instance_jsclass(~"DocumentNode",
+                                                       finalize_document_node,
+                                                       element::trace))
 }
 
+/// Creates the document instance
 pub fn create(compartment: @mut Compartment, doc: @mut Document) -> *JSObject {
     let instance : jsobj = result::unwrap(
         compartment.new_object_with_proto(~"DocumentInstance", ~"Document",
@@ -152,6 +168,26 @@ pub fn create(compartment: @mut Compartment, doc: @mut Document) -> *JSObject {
                                 JSPROP_ENUMERATE);
 
     instance.ptr
+}
+
+/// Creates the document node
+pub fn create_document_node(cx: *JSContext, node: &mut AbstractNode<ScriptView>) -> jsobj {
+    // FIXME: abstract this interfacing boilerplate
+    let proto = ~"DocumentNodePrototype";
+    let instance = ~"DocumentNode";
+    let compartment = utils::get_compartment(cx);
+    let obj = result::unwrap(compartment.new_object_with_proto(instance,
+                                                               proto,
+                                                               compartment.global_obj.ptr));
+
+    let cache = node.get_wrappercache();
+    assert!(cache.get_wrapper().is_null());
+    cache.set_wrapper(obj.ptr);
+
+    let raw_ptr = node.raw_object() as *libc::c_void;
+    JS_SetReservedSlot(obj.ptr, DOM_OBJECT_SLOT as u32, RUST_PRIVATE_TO_JSVAL(raw_ptr));
+
+    return obj;
 }
 
 impl CacheableWrapper for Document {
