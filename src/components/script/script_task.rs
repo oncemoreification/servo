@@ -124,8 +124,6 @@ pub struct ScriptContext {
 
     /// Global static data related to the DOM.
     dom_static: GlobalStaticData,
-    /// Whether the JS bindings have been initialized.
-    bindings_initialized: bool,
 
     /// The outermost frame. This frame contains the document, window, and page URL.
     root_frame: Option<Frame>,
@@ -175,6 +173,7 @@ impl ScriptContext {
         js_context.set_default_options_and_version();
         js_context.set_logging_error_reporter();
 
+        // Create the javascript compartment
         let compartment = match js_context.new_compartment(global_class) {
               Ok(c) => c,
               Err(()) => fail!("Failed to create a compartment"),
@@ -194,13 +193,16 @@ impl ScriptContext {
             js_compartment: compartment,
 
             dom_static: GlobalStaticData(),
-            bindings_initialized: false,
 
             root_frame: None,
 
             window_size: Size2D(800, 600),
             damage: MatchSelectorsDamage,
         };
+
+        // Define the script DOM bindings.
+        define_bindings(compartment);
+
         // Indirection for Rust Issue #6248, dynamic freeze scope artifically extended
         let script_context_ptr = {
             let borrowed_ctx= &mut *script_context;
@@ -296,17 +298,9 @@ impl ScriptContext {
         self.layout_task.chan.send(layout_interface::ExitMsg)
     }
 
-    /// The entry point to document loading. Defines bindings, sets up the window and document
+    /// The entry point to document loading. Sets up the window and document
     /// objects, parses HTML and CSS, and kicks off initial layout.
     fn load(&mut self, url: Url) {
-        // Define the script DOM bindings.
-        //
-        // FIXME: Can this be done earlier, to save the flag?
-        if !self.bindings_initialized {
-            define_bindings(self.js_compartment);
-            self.bindings_initialized = true
-        }
-
         // Parse HTML.
         //
         // Note: We can parse the next document in parallel with any previous documents.
@@ -463,4 +457,3 @@ impl ScriptContext {
         }
     }
 }
-
